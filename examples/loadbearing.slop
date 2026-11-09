@@ -1,0 +1,6 @@
+— loadbearing declares an immutable variable, like const.
+loadbearing LIMIT = 100✨
+slop score = 10✨
+score = score + 1✨
+hallucinate(LIMIT)✨
+hallucinate(score)✨

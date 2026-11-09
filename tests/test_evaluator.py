@@ -19,6 +19,7 @@ def fails(source: str) -> str:
     ("expression", "expected"),
     [
         ("7 / 2", "3"),
+        ("-7 / 2", "-3"),  # truncate toward zero, not floor
         ("2 - 3 * 4", "-10"),
         ("(2 - 3) * 4", "-4"),
         ("--5", "5"),
@@ -47,6 +48,10 @@ def test_equality_never_coerces(expression: str, expected: str):
     assert run(source) == f"{expected}\n"
 
 
+def test_division_by_zero_is_a_runtime_error():
+    assert fails("hallucinate(1 / 0)✨") == "SlopLang runtime error at line 1: division by zero"
+
+
 def test_short_circuit_skips_right_operand():
     assert run("hallucinate(❌ && 1 / 0 == 0)✨\nhallucinate(✅ || 1 / 0 == 0)✨") == "❌\n✅\n"
 
@@ -69,6 +74,49 @@ def test_assignment_walks_up_the_scope_chain():
 }
 hallucinate(x)✨"""
     assert run(source) == "2\n"
+
+
+def test_loadbearing_variable_can_be_read():
+    source = """loadbearing LIMIT = 100✨
+slop score = LIMIT - 90✨
+score = score + 1✨
+hallucinate(LIMIT)✨
+hallucinate(score)✨"""
+    assert run(source) == "100\n11\n"
+
+
+def test_loadbearing_variable_cannot_be_assigned():
+    assert fails("loadbearing LIMIT = 100✨\nLIMIT = 200✨") == (
+        "SlopLang runtime error at line 2: cannot assign to loadbearing 'LIMIT'"
+    )
+
+
+def test_loadbearing_cannot_be_assigned_from_nested_scope():
+    source = """loadbearing LIMIT = 100✨
+clanker bump() {
+    LIMIT = LIMIT + 1✨
+}
+bump()✨"""
+    assert fails(source) == (
+        "SlopLang runtime error at line 3: cannot assign to loadbearing 'LIMIT'"
+    )
+
+
+def test_mutability_is_per_binding_when_shadowing():
+    source = """loadbearing LIMIT = 100✨
+{
+    slop LIMIT = 200✨
+    LIMIT = LIMIT + 1✨
+    hallucinate(LIMIT)✨
+}
+slop score = 1✨
+{
+    loadbearing score = 10✨
+    hallucinate(score)✨
+}
+hallucinate(LIMIT)✨
+hallucinate(score)✨"""
+    assert run(source) == "201\n10\n100\n1\n"
 
 
 def test_loop_body_is_a_fresh_scope_each_iteration():
@@ -145,6 +193,15 @@ hallucinate(f())✨
 hallucinate(f)✨
 hallucinate(hallucinate)✨"""
     assert run(source) == "0\n-42\nstr\n✅\n❌\nnil\n<clanker f>\n<clanker hallucinate>\n"
+
+
+def test_hallucinate_prints_arguments_separated_by_spaces():
+    assert run("hallucinate(1, 2, 3)✨") == "1 2 3\n"
+    assert run("hallucinate(“hello”, “slop”, 42)✨") == "hello slop 42\n"
+
+
+def test_hallucinate_with_no_arguments_prints_a_blank_line():
+    assert run("hallucinate()✨") == "\n"
 
 
 def test_variation_selector_after_emoji_is_accepted():

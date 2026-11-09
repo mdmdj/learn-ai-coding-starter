@@ -22,6 +22,17 @@ def test_keywords_operators_and_emoji():
     ]
 
 
+def test_loadbearing_is_a_keyword():
+    assert types("loadbearing LIMIT = 100✨") == [
+        TokenType.LOADBEARING,
+        TokenType.IDENTIFIER,
+        TokenType.EQUAL,
+        TokenType.NUMBER,
+        TokenType.SPARKLES,
+        TokenType.EOF,
+    ]
+
+
 def test_two_character_operators_are_greedy():
     assert types("== != <= >= ||") == [
         TokenType.EQUAL_EQUAL,
@@ -52,6 +63,19 @@ def test_string_may_contain_em_dash_and_opening_quote():
 
 
 @pytest.mark.parametrize(
+    ("source", "literal"),
+    [
+        ("“a\\tb”", "a\tb"),
+        ("“a\\nb”", "a\nb"),
+        ("“a\\”b”", "a”b"),
+        ("“a\\\\b”", "a\\b"),
+    ],
+)
+def test_string_escapes(source: str, literal: str):
+    assert tokenize(source)[0].literal == literal
+
+
+@pytest.mark.parametrize(
     ("source", "line", "message"),
     [
         ('"hi"', 1, "straight quotes are not supported, use “ and ” for strings"),
@@ -65,6 +89,7 @@ def test_string_may_contain_em_dash_and_opening_quote():
         ("“a\\", 1, "unterminated string"),
         ("a & b", 1, "unexpected character '&', did you mean '&&'?"),
         ("a | b", 1, "unexpected character '|', did you mean '||'?"),
+        ("a % b", 1, "unexpected character '%'"),
     ],
 )
 def test_lexical_errors(source: str, line: int, message: str):

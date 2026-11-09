@@ -30,6 +30,17 @@ def run_program(source: str, out: TextIO) -> SlopError | None:
     return None
 
 
+def check_program(source: str) -> SlopError | None:
+    if sys.getrecursionlimit() < PYTHON_RECURSION_LIMIT:
+        sys.setrecursionlimit(PYTHON_RECURSION_LIMIT)
+    try:
+        tokens = tokenize(source)
+        parse(tokens)
+    except SlopError as error:
+        return error
+    return None
+
+
 def run_source(source: str) -> RunResult:
     out = StringIO()
     error = run_program(source, out)
